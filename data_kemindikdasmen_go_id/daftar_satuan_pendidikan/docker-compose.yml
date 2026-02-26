@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  scraper-api:
+    build: .
+    container_name: belajar_scraper_api
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    volumes:
+      # Mount a local SQLite database file so that scraped data persists across container restarts
+      - ./schools.db:/app/schools.db

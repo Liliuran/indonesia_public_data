@@ -1,6 +1,3 @@
-# API
+# Crawling support data
 
-provide api support 
-
-- GET `https://api.data.belajar.id/data-portal-backend/v2/master-data/satuan-pendidikan/daftar-data-induk/360?limit=20`
-
+create sqlite to compose the data in one place

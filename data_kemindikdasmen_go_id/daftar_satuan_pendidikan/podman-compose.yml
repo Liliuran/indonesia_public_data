@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  scraper-api:
+    build: .
+    container_name: belajar_scraper_api
+    ports:
+      - "8000:8000"
+    # Podman natively supports restarting services via systemd, but we can set restart policies
+    restart: unless-stopped
+    volumes:
+      # Mount a local SQLite database file so that scraped data persists across container restarts
+      # Note: with podman rootless you might need to append :Z for SELinux relabeling depending on the distro
+      - ./schools.db:/app/schools.db:Z
