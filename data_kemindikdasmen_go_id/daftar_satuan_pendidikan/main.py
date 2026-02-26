@@ -17,7 +17,13 @@ scraper = cloudscraper.create_scraper()
 
 # Thread lock to prevent concurrent scraping runs
 scrape_lock = threading.Lock()
-is_running = False
+scrape_state = {
+    "is_running": False,
+    "total": 0,
+    "completed": 0,
+    "failed": 0,
+    "current_npsn": None
+}
 
 def init_db():
     """Initializes the SQLite database and table."""
@@ -68,19 +74,28 @@ def save_to_db(data: Dict):
 
 def run_scraping_process(npsn_list: list):
     """The background task logic."""
-    global is_running
+    global scrape_state
     # Acquire the lock; if another process is running, this waits or skips
     with scrape_lock:
-        is_running = True
-        print("Starting background scrape...")
+        scrape_state["is_running"] = True
+        scrape_state["total"] = len(npsn_list)
+        scrape_state["completed"] = 0
+        scrape_state["failed"] = 0
+        
+        print(f"Starting background scrape for {len(npsn_list)} items...")
         init_db()
         
         for npsn in npsn_list:
+            scrape_state["current_npsn"] = npsn
             details = get_school_details(npsn)
             if details:
                 save_to_db(details)
+                scrape_state["completed"] += 1
+            else:
+                scrape_state["failed"] += 1
         
-        is_running = False
+        scrape_state["is_running"] = False
+        scrape_state["current_npsn"] = None
         print("Scraping process finished.")
 
 @app.post("/trigger-scrape")
@@ -89,9 +104,9 @@ async def trigger_scrape(npsn_list: list[str], background_tasks: BackgroundTasks
     Endpoint to start the scraping process.
     Returns 200 immediately and runs the logic in the background.
     """
-    global is_running
+    global scrape_state
     
-    if is_running:
+    if scrape_state["is_running"]:
         return {"status": "busy", "message": "A scrape is already in progress. Please wait."}
     
     # Add the function to background tasks
@@ -105,9 +120,9 @@ async def trigger_scrape_csv(request: CSVScrapeRequest, background_tasks: Backgr
     Endpoint to start the scraping process from a CSV URL.
     The CSV should have an 'NPSN' or 'npsn' column.
     """
-    global is_running
+    global scrape_state
     
-    if is_running:
+    if scrape_state["is_running"]:
         return {"status": "busy", "message": "A scrape is already in progress. Please wait."}
     
     file_url = request.file_url
@@ -146,8 +161,8 @@ async def trigger_scrape_csv(request: CSVScrapeRequest, background_tasks: Backgr
 
 @app.get("/status")
 async def get_status():
-    """Check if the scraper is currently active."""
-    return {"is_running": is_running}
+    """Check if the scraper is currently active and return its progress."""
+    return scrape_state
 
 if __name__ == "__main__":
     import uvicorn
